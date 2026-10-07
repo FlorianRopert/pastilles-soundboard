@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Pastilles Soundboard</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+
+  <!-- ECRAN DE CONNEXION -->
+  <section id="ecranLogin">
+    <h1>Pastilles Soundboard</h1>
+    <p class="aide">Colle ton token EFE, il sera gardé dans l'extension.</p>
+    <input id="champToken" type="password" placeholder="Token" autocomplete="off">
+    <button id="btnConnexion">Se connecter</button>
+    <p id="messageLogin"></p>
+  </section>
+
+  <!-- ECRAN PRINCIPAL -->
+  <section id="ecranDashboard" class="cache">
+    <header>
+      <img id="photoEleve" alt="">
+      <span id="nomEleve"></span>
+      <button id="btnDeconnexion" class="discret">Déconnexion</button>
+    </header>
+
+    <nav class="onglets">
+      <button id="ongletPastilles" class="actif">Mes pastilles</button>
+      <button id="ongletSons">Sons par couleur</button>
+    </nav>
+
+    <div id="vuePastilles">
+      <button id="btnSon" class="gros">Jouer le son de ma dernière pastille</button>
+      <p id="infoDerniere"></p>
+      <label class="case"><input type="checkbox" id="caseAuto"> Jouer les nouvelles pastilles à l'ouverture d'EFE</label>
+      <h2>Mes dernières pastilles</h2>
+      <ul id="listePastilles"></ul>
+      <p id="messageEtat"></p>
+    </div>
+
+    <div id="vueSons" class="cache"></div>
+  </section>
+
+  <script src="common.js"></script>
+  <script src="audio.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
