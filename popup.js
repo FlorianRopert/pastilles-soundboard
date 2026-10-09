@@ -9,7 +9,7 @@ var dernierePastille = null;
 var $ = function (id) { return document.getElementById(id); };
 
 function jouerSonPour(couleur) {
-  trouverSons(couleur).then(function (urls) {
+  sonsActifs(couleur).then(function (urls) {
     jouerUrlAvecSecours(sonAuHasard(urls), couleur, 8000);
   });
 }
@@ -250,66 +250,129 @@ function nomDuSon(url) {
   return fichier.replace(/_[A-Za-z0-9]{5,8}$/, '').replace(/[-_]+/g, ' ');
 }
 
+function el(tag, classe, texte) {
+  var e = document.createElement(tag);
+  if (classe) { e.className = classe; }
+  if (texte !== undefined) { e.textContent = texte; }
+  return e;
+}
+
 function construireVueSons() {
   var vue = $('vueSons');
   vue.innerHTML = '';
+  ORDRE.forEach(function (couleur) { vue.appendChild(construireBloc(couleur)); });
+}
 
-  ORDRE.forEach(function (couleur) {
-    var bloc = document.createElement('section');
-    bloc.className = 'bloc';
+// une section par couleur : mots-clés, liste des sons (cochés = utilisés), ajout d'un lien
+function construireBloc(couleur) {
+  var bloc = el('section', 'bloc');
 
-    var titre = document.createElement('h2');
-    var rond = document.createElement('span');
-    rond.className = 'rond';
-    rond.style.backgroundColor = COULEURS_CSS[couleur];
-    titre.appendChild(rond);
-    titre.appendChild(document.createTextNode(LIBELLES[couleur]));
+  var titre = el('h2');
+  var rond = el('span', 'rond');
+  rond.style.backgroundColor = COULEURS_CSS[couleur];
+  titre.appendChild(rond);
+  titre.appendChild(document.createTextNode(LIBELLES[couleur]));
+  var btnHasard = el('button', '', 'Au hasard');
+  btnHasard.addEventListener('click', function () { jouerSonPour(couleur); });
+  titre.appendChild(btnHasard);
+  bloc.appendChild(titre);
 
-    var btnHasard = document.createElement('button');
-    btnHasard.textContent = 'Au hasard';
-    btnHasard.addEventListener('click', function () { jouerSonPour(couleur); });
-
-    var btnActu = document.createElement('button');
-    btnActu.className = 'discret';
-    btnActu.textContent = 'Actualiser';
-    btnActu.title = 'Refaire la recherche de sons pour cette couleur';
-    btnActu.addEventListener('click', function () { viderCacheSons(couleur).then(remplir); });
-
-    titre.appendChild(btnHasard);
-    titre.appendChild(btnActu);
-    bloc.appendChild(titre);
-
-    var liste = document.createElement('ul');
-    bloc.appendChild(liste);
-    vue.appendChild(bloc);
-
-    function message(texte) {
-      liste.innerHTML = '';
-      var li = document.createElement('li');
-      li.className = 'vide';
-      li.textContent = texte;
-      liste.appendChild(li);
-    }
-
-    function remplir() {
-      message('Recherche des sons...');
-      trouverSons(couleur).then(function (urls) {
-        if (urls.length === 0) { message('Aucun son trouvé (Myinstants injoignable ?)'); return; }
-        liste.innerHTML = '';
-        urls.forEach(function (url) {
-          var li = document.createElement('li');
-          li.className = 'ligne';
-          li.tabIndex = 0;
-          li.textContent = '\u25B6 ' + nomDuSon(url);
-          var jouer = function () { jouerUrlAvecSecours(url, couleur, 8000); };
-          li.addEventListener('click', jouer);
-          li.addEventListener('keydown', function (e) { if (e.key === 'Enter') { jouer(); } });
-          liste.appendChild(li);
-        });
-      });
-    }
-    remplir();
+  // mots-clés de recherche
+  var ligneMots = el('div', 'ligneForm');
+  var champMots = el('input');
+  champMots.type = 'text';
+  champMots.placeholder = 'Mots-clés séparés par des virgules';
+  champMots.setAttribute('aria-label', 'Mots-clés pour ' + couleur);
+  var btnChercher = el('button', '', 'Chercher');
+  btnChercher.title = 'Enregistre ces mots-clés et refait la recherche de sons';
+  btnChercher.addEventListener('click', function () {
+    var mots = champMots.value.split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+    majParCouleur('motsPerso', couleur, function () { return mots; })
+      .then(function () { return viderCacheSons(couleur); })
+      .then(remplir);
   });
+  ligneMots.appendChild(champMots);
+  ligneMots.appendChild(btnChercher);
+  bloc.appendChild(ligneMots);
+
+  var liste = el('ul');
+  bloc.appendChild(liste);
+
+  // ajout d'un lien mp3 perso
+  var ligneLien = el('div', 'ligneForm');
+  var champLien = el('input');
+  champLien.type = 'text';
+  champLien.placeholder = 'Ajouter un lien mp3 (https://...)';
+  champLien.setAttribute('aria-label', 'Lien mp3 pour ' + couleur);
+  var btnAjout = el('button', '', 'Ajouter');
+  btnAjout.addEventListener('click', function () {
+    var lien = champLien.value.trim();
+    if (!/^https?:\/\/.+/i.test(lien)) {
+      champLien.value = '';
+      champLien.placeholder = 'Lien invalide, il doit commencer par https://';
+      return;
+    }
+    majParCouleur('sonsPerso', couleur, function (l) { return l.indexOf(lien) === -1 ? l.concat(lien) : l; })
+      .then(function () { champLien.value = ''; remplir(); });
+  });
+  ligneLien.appendChild(champLien);
+  ligneLien.appendChild(btnAjout);
+  bloc.appendChild(ligneLien);
+
+  function message(texte) {
+    liste.innerHTML = '';
+    liste.appendChild(el('li', 'vide', texte));
+  }
+
+  function remplir() {
+    message('Recherche des sons...');
+    Promise.all([lireReglages(), trouverSons(couleur)]).then(function (r) {
+      var reg = r[0];
+      var urls = r[1];
+      var motsActuels = (reg.mots[couleur] && reg.mots[couleur].length) ? reg.mots[couleur] : RECHERCHES[couleur];
+      champMots.value = motsActuels.join(', ');
+
+      var exclus = reg.exclus[couleur] || [];
+      var perso = reg.perso[couleur] || [];
+
+      if (urls.length === 0) { message('Aucun son trouvé (Myinstants injoignable ?)'); return; }
+      liste.innerHTML = '';
+
+      urls.forEach(function (url) {
+        var li = el('li', 'ligne son');
+
+        var coche = el('input');
+        coche.type = 'checkbox';
+        coche.checked = exclus.indexOf(url) === -1;
+        coche.title = 'Utiliser ce son';
+        coche.addEventListener('change', function () {
+          majParCouleur('sonsExclus', couleur, function (l) {
+            var sans = l.filter(function (u) { return u !== url; });
+            return coche.checked ? sans : sans.concat(url);
+          });
+        });
+        li.appendChild(coche);
+
+        var estPerso = perso.indexOf(url) !== -1;
+        var btn = el('button', 'lien', '\u25B6 ' + (estPerso ? 'perso : ' : '') + nomDuSon(url));
+        btn.addEventListener('click', function () { jouerUrlAvecSecours(url, couleur, 8000); });
+        li.appendChild(btn);
+
+        if (estPerso) {
+          var retirer = el('button', 'retirer', '\u2715');
+          retirer.title = 'Retirer ce lien';
+          retirer.addEventListener('click', function () {
+            majParCouleur('sonsPerso', couleur, function (l) { return l.filter(function (u) { return u !== url; }); }).then(remplir);
+          });
+          li.appendChild(retirer);
+        }
+        liste.appendChild(li);
+      });
+    });
+  }
+
+  remplir();
+  return bloc;
 }
 
 
@@ -321,3 +384,11 @@ $('caseAuto').addEventListener('change', function () {
   chrome.storage.local.set({ autoActive: $('caseAuto').checked });
 });
 chrome.action.setBadgeText({ text: '' });   // efface le "!" quand on ouvre le popup
+
+// ===== CLIC SUR LES PASTILLES D'EFE =====
+chrome.storage.local.get('clicActif', function (res) {
+  $('caseClic').checked = res.clicActif !== false;
+});
+$('caseClic').addEventListener('change', function () {
+  chrome.storage.local.set({ clicActif: $('caseClic').checked });
+});

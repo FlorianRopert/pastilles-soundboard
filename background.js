@@ -57,7 +57,7 @@ async function lancerAuto() {
     var items = [];
     var aJouer = nouvelles.slice(0, MAX_SONS_PAR_VISITE);
     for (var i = 0; i < aJouer.length; i++) {
-      var urls = await trouverSons(aJouer[i].couleur);
+      var urls = await sonsActifs(aJouer[i].couleur);
       items.push({ url: sonAuHasard(urls), couleur: aJouer[i].couleur });
     }
 
@@ -68,5 +68,23 @@ async function lancerAuto() {
     chrome.action.setBadgeText({ text: '!' });
   } finally {
     enCours = false;
+  }
+}
+
+
+// clic sur une pastille directement dans la page EFE (message envoyé par efe.js)
+chrome.runtime.onMessage.addListener(function (msg) {
+  if (msg && msg.type === 'jouer-direct' && ['vert', 'bleu', 'jaune', 'rouge', 'gris'].indexOf(msg.couleur) !== -1) {
+    jouerDirect(msg.couleur);
+  }
+});
+
+async function jouerDirect(couleur) {
+  try {
+    var urls = await sonsActifs(couleur);
+    await assurerOffscreen();
+    chrome.runtime.sendMessage({ cible: 'offscreen', type: 'jouer-direct', items: [{ url: sonAuHasard(urls), couleur: couleur }] });
+  } catch (err) {
+    console.error('clic direct :', err);
   }
 }

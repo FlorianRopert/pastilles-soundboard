@@ -6,6 +6,7 @@
   :root { --fond: #1b1d21; --texte: #ececee; --doux: #a0a5ad; --trait: #33363c; }
 }
 * { box-sizing: border-box; }
+html { background: var(--fond); }
 body { width: 400px; margin: 0; padding: 14px; background: var(--fond); color: var(--texte);
   font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
 .cache { display: none; }
@@ -45,3 +46,13 @@ label.case { display: flex; align-items: center; gap: 8px; font-size: 12px; colo
 .bloc h2 button { margin-left: 6px; padding: 3px 8px; font-size: 11px; }
 .bloc h2 button:first-of-type { margin-left: auto; }
 .bloc h2 button.discret { background: transparent; color: var(--doux); }
+
+.ligneForm { display: flex; gap: 6px; margin: 4px 0; }
+.ligneForm input { margin: 0; flex: 1; padding: 5px 8px; font-size: 12px; }
+.ligneForm button { padding: 5px 10px; font-size: 12px; }
+li.son { cursor: default; }
+li.son:hover { background: transparent; }
+li.son input[type="checkbox"] { flex: none; }
+button.lien { flex: 1; min-width: 0; background: transparent; color: var(--texte); text-align: left; padding: 3px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+button.lien:hover { background: var(--trait); }
+button.retirer { background: transparent; color: var(--doux); padding: 2px 6px; }

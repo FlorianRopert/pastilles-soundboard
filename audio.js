@@ -1,6 +1,9 @@
 // Lecture de sons (popup + offscreen document). Pas utilisable dans le service worker.
 var BIPS = { vert: 880, bleu: 660, jaune: 330, rouge: 200, gris: 440 };
 
+var arretCourant = null;
+function arreterSon() { if (arretCourant) { arretCourant(); } }
+
 function bip(couleur) {
   return new Promise(function (resolve) {
     var ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -41,6 +44,7 @@ function jouerUrlAvecSecours(url, couleur, dureeMax) {
       bip(couleur).then(resolve);
     }
 
+    arretCourant = fin;
     audio.addEventListener('ended', fin);
     audio.addEventListener('error', secours);
     audio.play().catch(secours);

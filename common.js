@@ -37,17 +37,18 @@ function chercherMp3(requete) {
 // liste d'URLs de sons pour une couleur, depuis le cache si possible
 function trouverSons(couleur) {
   return new Promise(function (resolve) {
-    chrome.storage.local.get('cacheSons', function (res) {
+    chrome.storage.local.get(['cacheSons', 'motsPerso', 'sonsPerso'], function (res) {
       var cache = res.cacheSons || {};
       var entree = cache[couleur];
       var limite = CACHE_JOURS * 24 * 3600 * 1000;
 
       if (entree && entree.urls.length > 0 && Date.now() - entree.date < limite) {
-        resolve(entree.urls);
+        resolve(avecPerso(entree.urls, res, couleur));
         return;
       }
 
-      var mots = RECHERCHES[couleur] || [];
+      var motsChoisis = (res.motsPerso || {})[couleur];
+      var mots = (motsChoisis && motsChoisis.length) ? motsChoisis : (RECHERCHES[couleur] || []);
       Promise.all(mots.map(function (mot) {
         return chercherMp3(mot).catch(function (err) {
           console.error('recherche "' + mot + '" :', err);
@@ -60,7 +61,7 @@ function trouverSons(couleur) {
           cache[couleur] = { date: Date.now(), urls: urls };
           chrome.storage.local.set({ cacheSons: cache });
         }
-        resolve(urls);
+        resolve(avecPerso(urls, res, couleur));
       });
     });
   });
@@ -110,4 +111,44 @@ async function recupererMesPastilles(token) {
   });
   mes.sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
   return { eleve: v.eleve, mes: mes };
+}
+
+
+// ----- réglages par couleur : mots-clés (motsPerso), sons décochés (sonsExclus), liens ajoutés (sonsPerso) -----
+function avecPerso(urls, res, couleur) {
+  var perso = (res.sonsPerso || {})[couleur] || [];
+  return urls.concat(perso.filter(function (u) { return urls.indexOf(u) === -1; }));
+}
+
+function lireReglages() {
+  return new Promise(function (resolve) {
+    chrome.storage.local.get(['motsPerso', 'sonsExclus', 'sonsPerso'], function (res) {
+      resolve({ mots: res.motsPerso || {}, exclus: res.sonsExclus || {}, perso: res.sonsPerso || {} });
+    });
+  });
+}
+
+// modifie la liste d'une couleur : fn reçoit l'ancienne liste et renvoie la nouvelle
+function majParCouleur(cle, couleur, fn) {
+  return new Promise(function (resolve) {
+    chrome.storage.local.get(cle, function (res) {
+      var obj = res[cle] || {};
+      obj[couleur] = fn(obj[couleur] || []);
+      var maj = {};
+      maj[cle] = obj;
+      chrome.storage.local.set(maj, resolve);
+    });
+  });
+}
+
+// les sons réellement utilisables pour une couleur (sans ceux que tu as décochés)
+function sonsActifs(couleur) {
+  return trouverSons(couleur).then(function (urls) {
+    return new Promise(function (resolve) {
+      chrome.storage.local.get('sonsExclus', function (res) {
+        var exclus = (res.sonsExclus || {})[couleur] || [];
+        resolve(urls.filter(function (u) { return exclus.indexOf(u) === -1; }));
+      });
+    });
+  });
 }
