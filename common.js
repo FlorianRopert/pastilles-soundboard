@@ -34,34 +34,58 @@ function chercherMp3(requete) {
     });
 }
 
-// liste d'URLs de sons pour une couleur, depuis le cache si possible
+// Myinstants bloque les requêtes de l'extension (HTTP 403) : on utilise les sons du dossier sons/ (listés dans sons.json).
+// Mets true pour retenter la recherche Myinstants en plus.
+var SOURCE_MYINSTANTS = false;
+
+// sons fournis avec l'extension : sons.json = { "vert": ["sons/vert/bravo.mp3"], "bleu": [], ... }
+function lireSonsLocaux(couleur) {
+  return fetch(chrome.runtime.getURL('sons.json'))
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      return (j[couleur] || []).map(function (chemin) { return chrome.runtime.getURL(chemin); });
+    })
+    .catch(function (err) {
+      console.error('sons.json :', err);
+      return [];
+    });
+}
+
+// liste d'URLs de sons pour une couleur : fichiers locaux + liens ajoutés (+ Myinstants si activé)
 function trouverSons(couleur) {
   return new Promise(function (resolve) {
     chrome.storage.local.get(['cacheSons', 'motsPerso', 'sonsPerso'], function (res) {
-      var cache = res.cacheSons || {};
-      var entree = cache[couleur];
-      var limite = CACHE_JOURS * 24 * 3600 * 1000;
-
-      if (entree && entree.urls.length > 0 && Date.now() - entree.date < limite) {
-        resolve(avecPerso(entree.urls, res, couleur));
-        return;
-      }
-
-      var motsChoisis = (res.motsPerso || {})[couleur];
-      var mots = (motsChoisis && motsChoisis.length) ? motsChoisis : (RECHERCHES[couleur] || []);
-      Promise.all(mots.map(function (mot) {
-        return chercherMp3(mot).catch(function (err) {
-          console.error('recherche "' + mot + '" :', err);
-          return [];
-        });
-      })).then(function (groupes) {
-        var urls = [].concat.apply([], groupes);
-        urls = urls.filter(function (u, i) { return urls.indexOf(u) === i; });
-        if (urls.length > 0) {
-          cache[couleur] = { date: Date.now(), urls: urls };
-          chrome.storage.local.set({ cacheSons: cache });
+      lireSonsLocaux(couleur).then(function (locaux) {
+        if (!SOURCE_MYINSTANTS) {
+          resolve(avecPerso(locaux, res, couleur));
+          return;
         }
-        resolve(avecPerso(urls, res, couleur));
+
+        var cache = res.cacheSons || {};
+        var entree = cache[couleur];
+        var limite = CACHE_JOURS * 24 * 3600 * 1000;
+
+        if (entree && entree.urls.length > 0 && Date.now() - entree.date < limite) {
+          resolve(avecPerso(locaux.concat(entree.urls), res, couleur));
+          return;
+        }
+
+        var motsChoisis = (res.motsPerso || {})[couleur];
+        var mots = (motsChoisis && motsChoisis.length) ? motsChoisis : (RECHERCHES[couleur] || []);
+        Promise.all(mots.map(function (mot) {
+          return chercherMp3(mot).catch(function (err) {
+            console.error('recherche "' + mot + '" :', err);
+            return [];
+          });
+        })).then(function (groupes) {
+          var urls = [].concat.apply([], groupes);
+          urls = urls.filter(function (u, i) { return urls.indexOf(u) === i; });
+          if (urls.length > 0) {
+            cache[couleur] = { date: Date.now(), urls: urls };
+            chrome.storage.local.set({ cacheSons: cache });
+          }
+          resolve(avecPerso(locaux.concat(urls), res, couleur));
+        });
       });
     });
   });

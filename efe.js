@@ -54,6 +54,7 @@
     // le popup n'est chargé qu'à la première ouverture
     if (ouvert && !cadre) {
       cadre = document.createElement('iframe');
+      cadre.allow = 'autoplay';   // sans ça, Chrome bloque tout son venant d'une iframe d'une autre origine
       cadre.src = chrome.runtime.getURL('popup.html');
       panneau.appendChild(cadre);
     }

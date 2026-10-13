@@ -1,12 +1,44 @@
 {
   "manifest_version": 3,
   "name": "Pastilles Soundboard",
-  "version": "3.0",
+  "version": "3.2",
+  "minimum_chrome_version": "116",
   "description": "Joue un son selon la couleur de tes pastilles EFE.",
-  "action": { "default_popup": "popup.html", "default_title": "Pastilles Soundboard" },
-  "background": { "service_worker": "background.js" },
-  "content_scripts": [{ "matches": ["https://efe.tspro.fr/*"], "js": ["efe.js"], "run_at": "document_idle" }],
-  "web_accessible_resources": [{ "resources": ["popup.html"], "matches": ["https://efe.tspro.fr/*"] }],
-  "permissions": ["storage", "offscreen"],
-  "host_permissions": ["https://efe.tspro.fr/*", "https://www.myinstants.com/*"]
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Pastilles Soundboard"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://efe.tspro.fr/*"
+      ],
+      "js": [
+        "efe.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "popup.html"
+      ],
+      "matches": [
+        "https://efe.tspro.fr/*"
+      ]
+    }
+  ],
+  "permissions": [
+    "storage",
+    "offscreen",
+    "unlimitedStorage"
+  ],
+  "host_permissions": [
+    "https://efe.tspro.fr/*",
+    "https://www.myinstants.com/*"
+  ]
 }

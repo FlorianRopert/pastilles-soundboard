@@ -14,10 +14,13 @@ chrome.runtime.onMessage.addListener(function (msg) {
   }
 
   var maGeneration = generation;
-  msg.items.forEach(function (item) {
+  (msg.items || []).forEach(function (item) {
     file = file.then(function () {
       if (maGeneration !== generation) { return; }
       return jouerUrlAvecSecours(item.url, item.couleur, DUREE_MAX_MS);
-    });
+    }).catch(function (err) { console.error('lecture :', err); });
   });
 });
+
+// le listener est en place : on prévient le service worker qu'il peut envoyer ses sons
+chrome.runtime.sendMessage({ type: 'offscreen-pret' }).catch(function () {});

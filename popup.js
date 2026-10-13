@@ -246,6 +246,11 @@ $('ongletSons').addEventListener('click', function () { afficherOnglet('sons'); 
 
 // "bruh-sound-effect_4VXhQMR.mp3" -> "bruh sound effect"
 function nomDuSon(url) {
+  if (url.indexOf('data:') === 0) {
+    var m = /;name=([^;,]+)/.exec(url.slice(0, 300));
+    var brut = m ? decodeURIComponent(m[1]) : 'son importé';
+    return brut.replace(/\.[A-Za-z0-9]{2,4}$/, '').replace(/[-_]+/g, ' ');
+  }
   var fichier = decodeURIComponent(url.split('/').pop()).replace(/\.mp3$/i, '');
   return fichier.replace(/_[A-Za-z0-9]{5,8}$/, '').replace(/[-_]+/g, ' ');
 }
@@ -255,6 +260,20 @@ function el(tag, classe, texte) {
   if (classe) { e.className = classe; }
   if (texte !== undefined) { e.textContent = texte; }
   return e;
+}
+
+var TAILLE_MAX_FICHIER = 2 * 1024 * 1024;   // 2 Mo par son
+
+function lireFichierEnUrl(fichier) {
+  return new Promise(function (resolve) {
+    if (fichier.size > TAILLE_MAX_FICHIER) { resolve(null); return; }
+    var lecteur = new FileReader();
+    lecteur.onload = function () {
+      resolve(String(lecteur.result).replace(';base64,', ';name=' + encodeURIComponent(fichier.name) + ';base64,'));
+    };
+    lecteur.onerror = function () { resolve(null); };
+    lecteur.readAsDataURL(fichier);
+  });
 }
 
 function construireVueSons() {
@@ -319,6 +338,31 @@ function construireBloc(couleur) {
   ligneLien.appendChild(btnAjout);
   bloc.appendChild(ligneLien);
 
+  // import de fichiers audio depuis l'ordinateur (gardés dans l'extension)
+  var ligneFichier = el('div', 'ligneForm');
+  var champFichier = el('input');
+  champFichier.type = 'file';
+  champFichier.accept = 'audio/*,.mp3';
+  champFichier.multiple = true;
+  champFichier.setAttribute('aria-label', 'Importer des fichiers audio pour ' + couleur);
+  var infoFichier = el('p', 'aide');
+  champFichier.addEventListener('change', function () {
+    var fichiers = Array.prototype.slice.call(champFichier.files);
+    champFichier.value = '';
+    infoFichier.textContent = '';
+    Promise.all(fichiers.map(lireFichierEnUrl)).then(function (urls) {
+      var bons = urls.filter(Boolean);
+      if (bons.length < urls.length) { infoFichier.textContent = 'Fichier ignoré : trop gros (max 2 Mo).'; }
+      if (bons.length === 0) { return; }
+      majParCouleur('sonsPerso', couleur, function (l) {
+        return l.concat(bons.filter(function (u) { return l.indexOf(u) === -1; }));
+      }).then(remplir);
+    });
+  });
+  ligneFichier.appendChild(champFichier);
+  bloc.appendChild(ligneFichier);
+  bloc.appendChild(infoFichier);
+
   function message(texte) {
     liste.innerHTML = '';
     liste.appendChild(el('li', 'vide', texte));
@@ -335,7 +379,7 @@ function construireBloc(couleur) {
       var exclus = reg.exclus[couleur] || [];
       var perso = reg.perso[couleur] || [];
 
-      if (urls.length === 0) { message('Aucun son trouvé (Myinstants injoignable ?)'); return; }
+      if (urls.length === 0) { message('Aucun son : ajoute des mp3 dans sons.json ou colle un lien mp3 ci-dessous'); return; }
       liste.innerHTML = '';
 
       urls.forEach(function (url) {
